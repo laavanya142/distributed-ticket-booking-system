@@ -1,0 +1,7 @@
+spring:
+  kafka:
+    bootstrap-servers: kafka:29092
+logging:
+  level:
+    root: INFO
+    com.ticketbooking.notification: INFO

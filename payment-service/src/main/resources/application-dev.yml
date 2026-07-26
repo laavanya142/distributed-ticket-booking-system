@@ -1,0 +1,13 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+chaos:
+  enabled: true
+  latency-ms: 150
+  failure-rate-percentage: 5
+logging:
+  level:
+    com.ticketbooking.payment: DEBUG
+    org.hibernate.SQL: DEBUG

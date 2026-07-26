@@ -1,0 +1,8 @@
+spring:
+  jpa:
+    show-sql: true
+logging:
+  level:
+    com.ticketbooking.auth: DEBUG
+    org.springframework.security: DEBUG
+    org.flywaydb: DEBUG

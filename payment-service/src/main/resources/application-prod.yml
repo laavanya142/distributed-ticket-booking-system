@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/payment_db
+  kafka:
+    bootstrap-servers: kafka:29092
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+chaos:
+  enabled: false
+logging:
+  level:
+    root: INFO
+    com.ticketbooking.payment: INFO

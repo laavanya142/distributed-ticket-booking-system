@@ -1,0 +1,70 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  profiles:
+    active: dev
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+      routes:
+        - id: auth-service-route
+          uri: ${AUTH_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/v1/auth/**
+        - id: user-service-route
+          uri: ${USER_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/v1/users/**
+        - id: event-service-route
+          uri: ${EVENT_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/events/**, /api/v1/catalog/**
+        - id: seat-service-route
+          uri: ${SEAT_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/shows/**, /api/v1/seats/**
+        - id: booking-service-route
+          uri: ${BOOKING_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/v1/bookings/**
+        - id: payment-service-route
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8086}
+          predicates:
+            - Path=/api/v1/payments/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+jwt:
+  issuer: https://auth.ticketbooking.com
+  jwks-uri: ${JWKS_URI:http://localhost:8081/.well-known/jwks.json}
+  excluded-paths:
+    - /api/v1/auth/login
+    - /api/v1/auth/register
+    - /api/v1/auth/refresh
+    - /.well-known/jwks.json
+    - /actuator/health
+    - /swagger-ui.html
+    - /swagger-ui/**
+    - /v3/api-docs/**
+

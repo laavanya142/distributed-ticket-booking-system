@@ -1,0 +1,35 @@
+name: CI Build & Quality Gates
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    name: Java 21 Build & Quality Gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Eclipse Temurin JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Verify Code Formatting (Spotless)
+        run: mvn spotless:check -Dspotless.check.skip=false
+
+      - name: Validate Code Style (Checkstyle)
+        run: mvn checkstyle:check
+
+      - name: Compile and Run Unit Tests
+        run: mvn clean test
+
+      - name: Package Microservices JARs
+        run: mvn package -DskipTests

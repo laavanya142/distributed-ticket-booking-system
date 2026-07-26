@@ -1,0 +1,41 @@
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: auth-service-route
+          uri: http://auth-service:8081
+          predicates:
+            - Path=/api/v1/auth/**
+        - id: user-service-route
+          uri: http://user-service:8082
+          predicates:
+            - Path=/api/v1/users/**
+        - id: event-service-route
+          uri: http://event-service:8083
+          predicates:
+            - Path=/api/v1/events/**, /api/v1/catalog/**
+        - id: seat-service-route
+          uri: http://seat-service:8084
+          predicates:
+            - Path=/api/v1/shows/**, /api/v1/seats/**
+        - id: booking-service-route
+          uri: http://booking-service:8085
+          predicates:
+            - Path=/api/v1/bookings/**
+        - id: payment-service-route
+          uri: http://payment-service:8086
+          predicates:
+            - Path=/api/v1/payments/**
+        - id: notification-service-route
+          uri: http://notification-service:8087
+          predicates:
+            - Path=/api/v1/notifications/**
+        - id: analytics-service-route
+          uri: http://analytics-service:8088
+          predicates:
+            - Path=/api/v1/analytics/**
+
+logging:
+  level:
+    root: INFO
+    com.ticketbooking: INFO
