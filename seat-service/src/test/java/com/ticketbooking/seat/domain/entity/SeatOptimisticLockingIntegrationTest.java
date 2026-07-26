@@ -73,11 +73,11 @@ class SeatOptimisticLockingIntegrationTest {
         ShowSeat entity2 = showSeatRepository.findById(showSeatId).orElseThrow();
 
         // First update locks seat
-        entity1.lock(UUID.randomUUID(), Instant.now());
+        entity1.lock(UUID.randomUUID(), UUID.randomUUID(), Instant.now());
         showSeatRepository.saveAndFlush(entity1);
 
         // Second update attempts to modify stale version
-        entity2.lock(UUID.randomUUID(), Instant.now());
+        entity2.lock(UUID.randomUUID(), UUID.randomUUID(), Instant.now());
 
         assertThatThrownBy(() -> showSeatRepository.saveAndFlush(entity2))
                 .isInstanceOf(OptimisticLockingFailureException.class);

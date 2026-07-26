@@ -23,4 +23,7 @@ public class ReleaseSeatsRequest {
 
     @NotNull(message = "Lock token cannot be null")
     private UUID lockToken;
+
+    @NotNull(message = "User ID cannot be null")
+    private UUID userId;
 }

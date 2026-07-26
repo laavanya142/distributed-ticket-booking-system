@@ -58,6 +58,7 @@ class SeatFailureScenarioIntegrationTest {
         UUID screenId = UUID.randomUUID();
         UUID showId = UUID.randomUUID();
         UUID lockToken = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
 
         Seat seat = seatRepository.save(Seat.builder()
                 .screenId(screenId)
@@ -75,16 +76,18 @@ class SeatFailureScenarioIntegrationTest {
                 .build());
 
         // Simulate Redis lock failure (returns false)
-        given(seatLockManager.lockSeats(eq(showId), eq(List.of(showSeat.getId())), eq(lockToken), anyLong()))
+        given(seatLockManager.lockSeats(
+                        eq(showId), eq(List.of(showSeat.getId())), eq(lockToken), eq(userId), anyLong()))
                 .willReturn(false);
 
-        assertThatThrownBy(() -> seatService.lockSeats(showId, List.of(showSeat.getId()), lockToken, 600))
+        assertThatThrownBy(() -> seatService.lockSeats(showId, List.of(showSeat.getId()), lockToken, userId, 600))
                 .isInstanceOf(SeatAlreadyLockedException.class);
 
         // Verify DB remains untouched
         ShowSeat current = showSeatRepository.findById(showSeat.getId()).orElseThrow();
         assertThat(current.getStatus()).isEqualTo(ShowSeatStatus.AVAILABLE);
         assertThat(current.getLockToken()).isNull();
+        assertThat(current.getLockedByUserId()).isNull();
     }
 
     @Test
@@ -93,6 +96,7 @@ class SeatFailureScenarioIntegrationTest {
         UUID screenId = UUID.randomUUID();
         UUID showId = UUID.randomUUID();
         UUID lockToken = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
 
         Seat seat = seatRepository.save(Seat.builder()
                 .screenId(screenId)
@@ -112,7 +116,7 @@ class SeatFailureScenarioIntegrationTest {
         List<UUID> seatIds = List.of(showSeat.getId());
 
         // Redis lock succeeds
-        given(seatLockManager.lockSeats(eq(showId), eq(seatIds), eq(lockToken), anyLong()))
+        given(seatLockManager.lockSeats(eq(showId), eq(seatIds), eq(lockToken), eq(userId), anyLong()))
                 .willReturn(true);
 
         // DB save fails
@@ -120,11 +124,11 @@ class SeatFailureScenarioIntegrationTest {
                 .when(showSeatRepository)
                 .saveAll(any());
 
-        assertThatThrownBy(() -> seatService.lockSeats(showId, seatIds, lockToken, 600))
+        assertThatThrownBy(() -> seatService.lockSeats(showId, seatIds, lockToken, userId, 600))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Database connection failure");
 
-        // Verify compensating Redis release was executed
-        verify(seatLockManager).releaseSeats(eq(showId), eq(seatIds), eq(lockToken));
+        // Verify compensating Redis release was executed with userId
+        verify(seatLockManager).releaseSeats(eq(showId), eq(seatIds), eq(lockToken), eq(userId));
     }
 }

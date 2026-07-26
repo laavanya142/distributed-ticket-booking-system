@@ -93,12 +93,13 @@ public class SeatServiceImpl implements SeatService {
 
     @Override
     @Transactional
-    public List<ShowSeat> lockSeats(UUID showId, List<UUID> showSeatIds, UUID lockToken, long ttlSeconds) {
+    public List<ShowSeat> lockSeats(UUID showId, List<UUID> showSeatIds, UUID lockToken, UUID userId, long ttlSeconds) {
         log.info(
-                "Attempting to lock {} seats for show ID: {} with lock token: {}",
+                "Attempting to lock {} seats for show ID: {} with lock token: {} and user ID: {}",
                 showSeatIds.size(),
                 showId,
-                lockToken);
+                lockToken,
+                userId);
 
         if (showSeatIds.isEmpty() || showSeatIds.size() > MAX_LOCK_BATCH_SIZE) {
             throw new IllegalArgumentException("Seat lock batch size must be between 1 and " + MAX_LOCK_BATCH_SIZE);
@@ -126,7 +127,7 @@ public class SeatServiceImpl implements SeatService {
             throw new SeatAlreadyLockedException(showId, conflictingSeatIds);
         }
 
-        boolean redisLocked = seatLockManager.lockSeats(showId, showSeatIds, lockToken, ttlSeconds);
+        boolean redisLocked = seatLockManager.lockSeats(showId, showSeatIds, lockToken, userId, ttlSeconds);
         if (!redisLocked) {
             log.warn("Redis atomic lock failed for show ID: {} and seats: {}", showId, showSeatIds);
             throw new SeatAlreadyLockedException(showId, showSeatIds);
@@ -134,23 +135,27 @@ public class SeatServiceImpl implements SeatService {
 
         try {
             for (ShowSeat ss : showSeats) {
-                ss.lock(lockToken, now);
+                ss.lock(lockToken, userId, now);
             }
             List<ShowSeat> saved = showSeatRepository.saveAll(showSeats);
             log.info("Successfully locked {} seats in database for show ID: {}", saved.size(), showId);
             return saved;
         } catch (Exception ex) {
             log.error("Database lock update failed for show ID: {}. Executing compensating Redis release.", showId, ex);
-            seatLockManager.releaseSeats(showId, showSeatIds, lockToken);
+            seatLockManager.releaseSeats(showId, showSeatIds, lockToken, userId);
             throw ex;
         }
     }
 
     @Override
     @Transactional
-    public void releaseSeats(UUID showId, List<UUID> showSeatIds, UUID lockToken) {
+    public void releaseSeats(UUID showId, List<UUID> showSeatIds, UUID lockToken, UUID userId) {
         log.info(
-                "Releasing {} locked seats for show ID: {} with lock token: {}", showSeatIds.size(), showId, lockToken);
+                "Releasing {} locked seats for show ID: {} with lock token: {} and user ID: {}",
+                showSeatIds.size(),
+                showId,
+                lockToken,
+                userId);
 
         if (showSeatIds.isEmpty()) {
             return;
@@ -160,7 +165,8 @@ public class SeatServiceImpl implements SeatService {
 
         for (ShowSeat ss : showSeats) {
             if (ss.getStatus() == ShowSeatStatus.LOCKED) {
-                if (ss.getLockToken() != null && !Objects.equals(ss.getLockToken(), lockToken)) {
+                if ((ss.getLockToken() != null && !Objects.equals(ss.getLockToken(), lockToken))
+                        || (ss.getLockedByUserId() != null && !Objects.equals(ss.getLockedByUserId(), userId))) {
                     throw new InvalidSeatLockException(lockToken);
                 }
                 ss.unlock();
@@ -168,8 +174,44 @@ public class SeatServiceImpl implements SeatService {
         }
 
         showSeatRepository.saveAll(showSeats);
-        seatLockManager.releaseSeats(showId, showSeatIds, lockToken);
+        seatLockManager.releaseSeats(showId, showSeatIds, lockToken, userId);
         log.info("Successfully released seats for show ID: {}", showId);
+    }
+
+    @Override
+    @Transactional
+    public void confirmSeats(UUID showId, List<UUID> showSeatIds, UUID lockToken, UUID userId) {
+        log.info(
+                "Confirming {} show seats for show ID: {} with lock token: {} and user ID: {}",
+                showSeatIds.size(),
+                showId,
+                lockToken,
+                userId);
+
+        if (showSeatIds.isEmpty()) {
+            return;
+        }
+
+        List<ShowSeat> showSeats = showSeatRepository.findByShowIdAndIdInWithSeat(showId, showSeatIds);
+        if (showSeats.size() != showSeatIds.size()) {
+            throw new SeatNotFoundException(showSeatIds.get(0));
+        }
+
+        for (ShowSeat ss : showSeats) {
+            if (ss.getStatus() != ShowSeatStatus.LOCKED
+                    || !Objects.equals(ss.getLockToken(), lockToken)
+                    || !Objects.equals(ss.getLockedByUserId(), userId)) {
+                log.warn("Confirm seats failed validation for show ID: {} and seat ID: {}", showId, ss.getId());
+                throw new InvalidSeatLockException(lockToken);
+            }
+        }
+
+        for (ShowSeat ss : showSeats) {
+            ss.confirmBooking();
+        }
+        showSeatRepository.saveAll(showSeats);
+        seatLockManager.releaseSeats(showId, showSeatIds, lockToken, userId);
+        log.info("Successfully confirmed {} seats as BOOKED for show ID: {}", showSeats.size(), showId);
     }
 
     private BigDecimal calculateSeatPrice(BigDecimal basePrice, SeatCategory category) {

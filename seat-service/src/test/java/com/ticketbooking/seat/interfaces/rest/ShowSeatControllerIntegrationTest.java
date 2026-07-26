@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ticketbooking.seat.application.dto.ConfirmSeatsRequest;
 import com.ticketbooking.seat.application.dto.InitializeShowSeatsRequest;
 import com.ticketbooking.seat.application.dto.LockSeatsRequest;
 import com.ticketbooking.seat.application.dto.ReleaseSeatsRequest;
@@ -62,10 +63,10 @@ class ShowSeatControllerIntegrationTest {
     void setUp() {
         Mockito.lenient().when(seatLockManager.getDefaultTtlSeconds()).thenReturn(600L);
         Mockito.lenient()
-                .when(seatLockManager.lockSeats(any(), any(), any(), anyLong()))
+                .when(seatLockManager.lockSeats(any(), any(), any(), any(), anyLong()))
                 .thenReturn(true);
         Mockito.lenient()
-                .when(seatLockManager.releaseSeats(any(), any(), any()))
+                .when(seatLockManager.releaseSeats(any(), any(), any(), any()))
                 .thenReturn(true);
     }
 
@@ -203,6 +204,7 @@ class ShowSeatControllerIntegrationTest {
                     .status(ShowSeatStatus.LOCKED)
                     .lockedAt(Instant.now())
                     .lockToken(UUID.randomUUID())
+                    .lockedByUserId(UUID.randomUUID())
                     .price(new BigDecimal("50.00"))
                     .build());
 
@@ -234,11 +236,12 @@ class ShowSeatControllerIntegrationTest {
     class LockingTests {
 
         @Test
-        @DisplayName("Should successfully lock available show seats and generate lock token")
+        @DisplayName("Should successfully lock available show seats with lockToken and userId")
         void lockSeats_success() throws Exception {
             UUID screenId = UUID.randomUUID();
             UUID showId = UUID.randomUUID();
             UUID lockToken = UUID.randomUUID();
+            UUID userId = UUID.randomUUID();
 
             Seat seat1 = seatRepository.save(Seat.builder()
                     .screenId(screenId)
@@ -258,6 +261,7 @@ class ShowSeatControllerIntegrationTest {
             LockSeatsRequest request = LockSeatsRequest.builder()
                     .showSeatIds(List.of(showSeat.getId()))
                     .lockToken(lockToken)
+                    .userId(userId)
                     .ttlSeconds(600)
                     .build();
 
@@ -275,6 +279,7 @@ class ShowSeatControllerIntegrationTest {
             ShowSeat updated = showSeatRepository.findById(showSeat.getId()).orElseThrow();
             assertThat(updated.getStatus()).isEqualTo(ShowSeatStatus.LOCKED);
             assertThat(updated.getLockToken()).isEqualTo(lockToken);
+            assertThat(updated.getLockedByUserId()).isEqualTo(userId);
             assertThat(updated.getLockedAt()).isNotNull();
         }
 
@@ -299,12 +304,14 @@ class ShowSeatControllerIntegrationTest {
                     .status(ShowSeatStatus.LOCKED)
                     .lockedAt(Instant.now())
                     .lockToken(existingToken)
+                    .lockedByUserId(UUID.randomUUID())
                     .price(new BigDecimal("100.00"))
                     .build());
 
             LockSeatsRequest request = LockSeatsRequest.builder()
                     .showSeatIds(List.of(lockedSeat.getId()))
                     .lockToken(UUID.randomUUID())
+                    .userId(UUID.randomUUID())
                     .ttlSeconds(600)
                     .build();
 
@@ -325,6 +332,7 @@ class ShowSeatControllerIntegrationTest {
             LockSeatsRequest request = LockSeatsRequest.builder()
                     .showSeatIds(List.of(nonExistentSeatId))
                     .lockToken(UUID.randomUUID())
+                    .userId(UUID.randomUUID())
                     .ttlSeconds(600)
                     .build();
 
@@ -347,6 +355,7 @@ class ShowSeatControllerIntegrationTest {
             LockSeatsRequest request = LockSeatsRequest.builder()
                     .showSeatIds(elevenSeatIds)
                     .lockToken(UUID.randomUUID())
+                    .userId(UUID.randomUUID())
                     .ttlSeconds(600)
                     .build();
 
@@ -368,6 +377,7 @@ class ShowSeatControllerIntegrationTest {
             UUID screenId = UUID.randomUUID();
             UUID showId = UUID.randomUUID();
             UUID lockToken = UUID.randomUUID();
+            UUID userId = UUID.randomUUID();
 
             Seat seat1 = seatRepository.save(Seat.builder()
                     .screenId(screenId)
@@ -383,12 +393,14 @@ class ShowSeatControllerIntegrationTest {
                     .status(ShowSeatStatus.LOCKED)
                     .lockedAt(Instant.now())
                     .lockToken(lockToken)
+                    .lockedByUserId(userId)
                     .price(new BigDecimal("100.00"))
                     .build());
 
             ReleaseSeatsRequest request = ReleaseSeatsRequest.builder()
                     .showSeatIds(List.of(lockedSeat.getId()))
                     .lockToken(lockToken)
+                    .userId(userId)
                     .build();
 
             mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/shows/{showId}/seats/release", showId)
@@ -400,15 +412,17 @@ class ShowSeatControllerIntegrationTest {
             ShowSeat released = showSeatRepository.findById(lockedSeat.getId()).orElseThrow();
             assertThat(released.getStatus()).isEqualTo(ShowSeatStatus.AVAILABLE);
             assertThat(released.getLockToken()).isNull();
+            assertThat(released.getLockedByUserId()).isNull();
             assertThat(released.getLockedAt()).isNull();
         }
 
         @Test
-        @DisplayName("Should reject seat release when lock token does not match owner token")
-        void releaseSeats_invalidLockToken() throws Exception {
+        @DisplayName("Should reject seat release when lock token or userId does not match owner")
+        void releaseSeats_invalidLockTokenOrUserId() throws Exception {
             UUID screenId = UUID.randomUUID();
             UUID showId = UUID.randomUUID();
             UUID ownerToken = UUID.randomUUID();
+            UUID ownerUserId = UUID.randomUUID();
             UUID unauthorizedToken = UUID.randomUUID();
 
             Seat seat1 = seatRepository.save(Seat.builder()
@@ -425,12 +439,14 @@ class ShowSeatControllerIntegrationTest {
                     .status(ShowSeatStatus.LOCKED)
                     .lockedAt(Instant.now())
                     .lockToken(ownerToken)
+                    .lockedByUserId(ownerUserId)
                     .price(new BigDecimal("100.00"))
                     .build());
 
             ReleaseSeatsRequest request = ReleaseSeatsRequest.builder()
                     .showSeatIds(List.of(lockedSeat.getId()))
                     .lockToken(unauthorizedToken)
+                    .userId(ownerUserId)
                     .build();
 
             mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/shows/{showId}/seats/release", showId)
@@ -439,13 +455,109 @@ class ShowSeatControllerIntegrationTest {
                     .andExpect(MockMvcResultMatchers.status().isConflict())
                     .andExpect(MockMvcResultMatchers.jsonPath("$.errorCode").value("INVALID_SEAT_LOCK"));
         }
+    }
+
+    @Nested
+    @DisplayName("6. Seat Confirm Scenarios")
+    class ConfirmTests {
 
         @Test
-        @DisplayName("Should handle release of unlocked or available seats idempotently")
-        void releaseSeats_idempotentAndUnlocked() throws Exception {
+        @DisplayName("Should successfully confirm locked seats as BOOKED when lockToken and userId match")
+        void confirmSeats_success() throws Exception {
             UUID screenId = UUID.randomUUID();
             UUID showId = UUID.randomUUID();
-            UUID anyToken = UUID.randomUUID();
+            UUID lockToken = UUID.randomUUID();
+            UUID userId = UUID.randomUUID();
+
+            Seat seat1 = seatRepository.save(Seat.builder()
+                    .screenId(screenId)
+                    .rowNumber("A")
+                    .seatNumber(1)
+                    .category(SeatCategory.REGULAR)
+                    .active(true)
+                    .build());
+
+            ShowSeat lockedSeat = showSeatRepository.save(ShowSeat.builder()
+                    .showId(showId)
+                    .seat(seat1)
+                    .status(ShowSeatStatus.LOCKED)
+                    .lockedAt(Instant.now())
+                    .lockToken(lockToken)
+                    .lockedByUserId(userId)
+                    .price(new BigDecimal("100.00"))
+                    .build());
+
+            ConfirmSeatsRequest request = ConfirmSeatsRequest.builder()
+                    .showSeatIds(List.of(lockedSeat.getId()))
+                    .lockToken(lockToken)
+                    .userId(userId)
+                    .build();
+
+            mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/shows/{showId}/seats/confirm", showId)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(MockMvcResultMatchers.status().isOk())
+                    .andExpect(MockMvcResultMatchers.jsonPath("$.success").value(true));
+
+            ShowSeat confirmed = showSeatRepository.findById(lockedSeat.getId()).orElseThrow();
+            assertThat(confirmed.getStatus()).isEqualTo(ShowSeatStatus.BOOKED);
+            assertThat(confirmed.getLockToken()).isNull();
+            assertThat(confirmed.getLockedByUserId()).isNull();
+            assertThat(confirmed.getLockedAt()).isNull();
+        }
+
+        @Test
+        @DisplayName("Should reject seat confirmation and modify nothing if lockToken or userId mismatches")
+        void confirmSeats_mismatchedLockTokenOrUserId() throws Exception {
+            UUID screenId = UUID.randomUUID();
+            UUID showId = UUID.randomUUID();
+            UUID ownerToken = UUID.randomUUID();
+            UUID ownerUserId = UUID.randomUUID();
+            UUID wrongUserId = UUID.randomUUID();
+
+            Seat seat1 = seatRepository.save(Seat.builder()
+                    .screenId(screenId)
+                    .rowNumber("A")
+                    .seatNumber(1)
+                    .category(SeatCategory.REGULAR)
+                    .active(true)
+                    .build());
+
+            ShowSeat lockedSeat = showSeatRepository.save(ShowSeat.builder()
+                    .showId(showId)
+                    .seat(seat1)
+                    .status(ShowSeatStatus.LOCKED)
+                    .lockedAt(Instant.now())
+                    .lockToken(ownerToken)
+                    .lockedByUserId(ownerUserId)
+                    .price(new BigDecimal("100.00"))
+                    .build());
+
+            ConfirmSeatsRequest request = ConfirmSeatsRequest.builder()
+                    .showSeatIds(List.of(lockedSeat.getId()))
+                    .lockToken(ownerToken)
+                    .userId(wrongUserId)
+                    .build();
+
+            mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/shows/{showId}/seats/confirm", showId)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(MockMvcResultMatchers.status().isConflict())
+                    .andExpect(MockMvcResultMatchers.jsonPath("$.errorCode").value("INVALID_SEAT_LOCK"));
+
+            ShowSeat untouched = showSeatRepository.findById(lockedSeat.getId()).orElseThrow();
+            assertThat(untouched.getStatus()).isEqualTo(ShowSeatStatus.LOCKED);
+            assertThat(untouched.getLockToken()).isEqualTo(ownerToken);
+            assertThat(untouched.getLockedByUserId()).isEqualTo(ownerUserId);
+        }
+
+        @Test
+        @DisplayName("Should reject seat confirmation and modify nothing if seat is not in LOCKED status")
+        void confirmSeats_seatNotLocked() throws Exception {
+            UUID screenId = UUID.randomUUID();
+            UUID showId = UUID.randomUUID();
+            UUID lockToken = UUID.randomUUID();
+            UUID userId = UUID.randomUUID();
 
             Seat seat1 = seatRepository.save(Seat.builder()
                     .screenId(screenId)
@@ -462,16 +574,21 @@ class ShowSeatControllerIntegrationTest {
                     .price(new BigDecimal("100.00"))
                     .build());
 
-            ReleaseSeatsRequest request = ReleaseSeatsRequest.builder()
+            ConfirmSeatsRequest request = ConfirmSeatsRequest.builder()
                     .showSeatIds(List.of(availableSeat.getId()))
-                    .lockToken(anyToken)
+                    .lockToken(lockToken)
+                    .userId(userId)
                     .build();
 
-            mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/shows/{showId}/seats/release", showId)
+            mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/shows/{showId}/seats/confirm", showId)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(MockMvcResultMatchers.status().isOk())
-                    .andExpect(MockMvcResultMatchers.jsonPath("$.success").value(true));
+                    .andExpect(MockMvcResultMatchers.status().isConflict())
+                    .andExpect(MockMvcResultMatchers.jsonPath("$.errorCode").value("INVALID_SEAT_LOCK"));
+
+            ShowSeat untouched =
+                    showSeatRepository.findById(availableSeat.getId()).orElseThrow();
+            assertThat(untouched.getStatus()).isEqualTo(ShowSeatStatus.AVAILABLE);
         }
     }
 }

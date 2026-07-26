@@ -68,6 +68,9 @@ public class ShowSeat {
     @Column(name = "lock_token")
     private UUID lockToken;
 
+    @Column(name = "locked_by_user_id")
+    private UUID lockedByUserId;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
@@ -94,11 +97,13 @@ public class ShowSeat {
      * Attempts to place a temporary lock on this show seat.
      *
      * @param token Unique lock token (e.g. booking session ID).
+     * @param userId Owning user identifier.
      * @param time Timestamp when lock was acquired.
      */
-    public void lock(UUID token, Instant time) {
+    public void lock(UUID token, UUID userId, Instant time) {
         this.status = ShowSeatStatus.LOCKED;
         this.lockToken = token;
+        this.lockedByUserId = userId;
         this.lockedAt = time;
     }
 
@@ -108,6 +113,7 @@ public class ShowSeat {
     public void unlock() {
         this.status = ShowSeatStatus.AVAILABLE;
         this.lockToken = null;
+        this.lockedByUserId = null;
         this.lockedAt = null;
     }
 
@@ -117,6 +123,7 @@ public class ShowSeat {
     public void confirmBooking() {
         this.status = ShowSeatStatus.BOOKED;
         this.lockToken = null;
+        this.lockedByUserId = null;
         this.lockedAt = null;
     }
 

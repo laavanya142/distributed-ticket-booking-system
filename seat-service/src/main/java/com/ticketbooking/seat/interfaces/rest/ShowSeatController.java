@@ -1,6 +1,7 @@
 package com.ticketbooking.seat.interfaces.rest;
 
 import com.ticketbooking.common.dto.ApiResponse;
+import com.ticketbooking.seat.application.dto.ConfirmSeatsRequest;
 import com.ticketbooking.seat.application.dto.InitializeShowSeatsRequest;
 import com.ticketbooking.seat.application.dto.LockSeatsRequest;
 import com.ticketbooking.seat.application.dto.LockSeatsResponse;
@@ -113,7 +114,7 @@ public class ShowSeatController {
      * Atomically locks a batch of show seats for checkout.
      *
      * @param showId Show identifier.
-     * @param request Payload containing seat IDs, lockToken, and optional TTL.
+     * @param request Payload containing seat IDs, lockToken, userId, and optional TTL.
      * @return ResponseEntity with LockSeatsResponse payload.
      */
     @PostMapping("/{showId}/seats/lock")
@@ -127,7 +128,7 @@ public class ShowSeatController {
                 request.getShowSeatIds().size(),
                 showId);
         List<ShowSeat> lockedSeats = seatService.lockSeats(
-                showId, request.getShowSeatIds(), request.getLockToken(), request.getTtlSeconds());
+                showId, request.getShowSeatIds(), request.getLockToken(), request.getUserId(), request.getTtlSeconds());
 
         List<UUID> lockedSeatIds = new ArrayList<>(lockedSeats.size());
         for (ShowSeat ss : lockedSeats) {
@@ -154,7 +155,7 @@ public class ShowSeatController {
      * Explicitly releases a batch of locked seats back to AVAILABLE status.
      *
      * @param showId Show identifier.
-     * @param request Payload containing seat IDs and lockToken.
+     * @param request Payload containing seat IDs, lockToken, and userId.
      * @return ResponseEntity with empty success payload.
      */
     @PostMapping("/{showId}/seats/release")
@@ -165,7 +166,28 @@ public class ShowSeatController {
                 "Received request to release {} seats for show ID: {}",
                 request.getShowSeatIds().size(),
                 showId);
-        seatService.releaseSeats(showId, request.getShowSeatIds(), request.getLockToken());
+        seatService.releaseSeats(showId, request.getShowSeatIds(), request.getLockToken(), request.getUserId());
         return ResponseEntity.ok(ApiResponse.<Void>success("Seats released successfully", null));
+    }
+
+    /**
+     * Permanently confirms a batch of locked seats as BOOKED post-payment.
+     *
+     * @param showId Show identifier.
+     * @param request Payload containing seat IDs, lockToken, and userId.
+     * @return ResponseEntity with empty success payload.
+     */
+    @PostMapping("/{showId}/seats/confirm")
+    @Operation(
+            summary = "Confirm seats",
+            description = "Permanently transitions locked seats to BOOKED status post-payment")
+    public ResponseEntity<ApiResponse<Void>> confirmSeats(
+            @PathVariable UUID showId, @Valid @RequestBody ConfirmSeatsRequest request) {
+        log.info(
+                "Received request to confirm {} seats for show ID: {}",
+                request.getShowSeatIds().size(),
+                showId);
+        seatService.confirmSeats(showId, request.getShowSeatIds(), request.getLockToken(), request.getUserId());
+        return ResponseEntity.ok(ApiResponse.<Void>success("Seats confirmed successfully", null));
     }
 }

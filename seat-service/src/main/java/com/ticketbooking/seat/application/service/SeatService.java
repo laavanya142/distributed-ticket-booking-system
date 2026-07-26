@@ -44,10 +44,11 @@ public interface SeatService {
      * @param showId Show identifier.
      * @param showSeatIds List of show seat IDs to lock.
      * @param lockToken Unique lock ownership token.
+     * @param userId Owning user identifier.
      * @param ttlSeconds Lock duration in seconds (0 for default).
      * @return List of successfully locked ShowSeat entities.
      */
-    List<ShowSeat> lockSeats(UUID showId, List<UUID> showSeatIds, UUID lockToken, long ttlSeconds);
+    List<ShowSeat> lockSeats(UUID showId, List<UUID> showSeatIds, UUID lockToken, UUID userId, long ttlSeconds);
 
     /**
      * Explicitly releases a batch of locked show seats back to AVAILABLE status.
@@ -55,6 +56,18 @@ public interface SeatService {
      * @param showId Show identifier.
      * @param showSeatIds List of show seat IDs to release.
      * @param lockToken Lock ownership token verifying caller authority.
+     * @param userId User identifier verifying caller authority.
      */
-    void releaseSeats(UUID showId, List<UUID> showSeatIds, UUID lockToken);
+    void releaseSeats(UUID showId, List<UUID> showSeatIds, UUID lockToken, UUID userId);
+
+    /**
+     * Permanently confirms a batch of locked show seats as BOOKED post-payment.
+     * Verified all-or-nothing: every seat must be LOCKED by matching lockToken and userId.
+     *
+     * @param showId Show identifier.
+     * @param showSeatIds List of show seat IDs to confirm.
+     * @param lockToken Lock ownership token verifying caller authority.
+     * @param userId User identifier verifying caller authority.
+     */
+    void confirmSeats(UUID showId, List<UUID> showSeatIds, UUID lockToken, UUID userId);
 }

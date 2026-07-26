@@ -51,18 +51,20 @@ public class SeatLockManager {
      * @param showId Show identifier.
      * @param showSeatIds List of show seat identifiers to lock.
      * @param lockToken Unique lock token (e.g. booking session ID).
+     * @param userId Owning user identifier.
      * @param ttlSeconds Lock duration in seconds (if 0 or negative, defaultTtlSeconds is used).
      * @return true if all seats were successfully locked; false if any seat was already locked.
      */
-    public boolean lockSeats(UUID showId, List<UUID> showSeatIds, UUID lockToken, long ttlSeconds) {
+    public boolean lockSeats(UUID showId, List<UUID> showSeatIds, UUID lockToken, UUID userId, long ttlSeconds) {
         if (showSeatIds == null || showSeatIds.isEmpty()) {
             return true;
         }
 
         long ttl = ttlSeconds > 0 ? ttlSeconds : defaultTtlSeconds;
         List<String> keys = buildLockKeys(showId, showSeatIds);
+        String lockValue = buildLockValue(lockToken, userId);
 
-        List<?> result = redisTemplate.execute(lockSeatsScript, keys, lockToken.toString(), String.valueOf(ttl));
+        List<?> result = redisTemplate.execute(lockSeatsScript, keys, lockValue, String.valueOf(ttl));
 
         if (result != null && !result.isEmpty() && result.get(0) instanceof Long longVal) {
             return longVal == 1L;
@@ -71,20 +73,22 @@ public class SeatLockManager {
     }
 
     /**
-     * Atomically releases a batch of show seats in Redis if all are owned by the lock token.
+     * Atomically releases a batch of show seats in Redis if all are owned by the lock token and user ID.
      *
      * @param showId Show identifier.
      * @param showSeatIds List of show seat identifiers to release.
      * @param lockToken Lock token verifying ownership.
-     * @return true if all seats were released; false if any lock token mismatched.
+     * @param userId User identifier verifying ownership.
+     * @return true if all seats were released; false if any lock token or user ID mismatched.
      */
-    public boolean releaseSeats(UUID showId, List<UUID> showSeatIds, UUID lockToken) {
+    public boolean releaseSeats(UUID showId, List<UUID> showSeatIds, UUID lockToken, UUID userId) {
         if (showSeatIds == null || showSeatIds.isEmpty()) {
             return true;
         }
 
         List<String> keys = buildLockKeys(showId, showSeatIds);
-        List<?> result = redisTemplate.execute(releaseSeatsScript, keys, lockToken.toString());
+        String lockValue = buildLockValue(lockToken, userId);
+        List<?> result = redisTemplate.execute(releaseSeatsScript, keys, lockValue);
 
         if (result != null && !result.isEmpty() && result.get(0) instanceof Long longVal) {
             return longVal == 1L;
@@ -93,17 +97,19 @@ public class SeatLockManager {
     }
 
     /**
-     * Verifies whether a specific show seat is locked in Redis by the specified lock token.
+     * Verifies whether a specific show seat is locked in Redis by the specified lock token and user ID.
      *
      * @param showId Show identifier.
      * @param showSeatId Show seat identifier.
      * @param lockToken Lock token to verify.
-     * @return true if seat is locked by the specified token.
+     * @param userId User identifier to verify.
+     * @return true if seat is locked by the specified token and user ID.
      */
-    public boolean verifyLock(UUID showId, UUID showSeatId, UUID lockToken) {
+    public boolean verifyLock(UUID showId, UUID showSeatId, UUID lockToken, UUID userId) {
         String key = buildSingleLockKey(showId, showSeatId);
         String currentToken = redisTemplate.opsForValue().get(key);
-        return Objects.equals(currentToken, lockToken.toString());
+        String expectedValue = buildLockValue(lockToken, userId);
+        return Objects.equals(currentToken, expectedValue);
     }
 
     /**
@@ -125,5 +131,9 @@ public class SeatLockManager {
 
     private String buildSingleLockKey(UUID showId, UUID showSeatId) {
         return String.format("show:%s:seat:%s:lock", showId, showSeatId);
+    }
+
+    private String buildLockValue(UUID lockToken, UUID userId) {
+        return lockToken.toString() + ":" + userId.toString();
     }
 }
