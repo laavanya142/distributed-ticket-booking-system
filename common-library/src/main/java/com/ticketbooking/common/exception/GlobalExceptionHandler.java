@@ -34,7 +34,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ErrorResponse> handleDomainException(DomainException ex, HttpServletRequest request) {
         log.warn("Domain exception occurred: [{}] {}", ex.getErrorCode(), ex.getMessage());
-        HttpStatus status = ex instanceof ResourceNotFoundException ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+        HttpStatus status = (ex instanceof ResourceNotFoundException
+                        || (ex.getErrorCode() != null && ex.getErrorCode().endsWith("_NOT_FOUND")))
+                ? HttpStatus.NOT_FOUND
+                : HttpStatus.BAD_REQUEST;
         String correlationId = getCorrelationId(request);
         return ResponseEntity.status(status).body(ErrorResponse.of(ex.getErrorCode(), ex.getMessage(), correlationId));
     }
