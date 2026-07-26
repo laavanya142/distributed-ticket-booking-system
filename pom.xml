@@ -24,6 +24,7 @@
         <module>auth-service</module>
         <module>event-service</module>
         <module>seat-service</module>
+        <module>booking-service</module>
     </modules>
 
     <properties>
