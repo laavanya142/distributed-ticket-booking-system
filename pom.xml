@@ -25,6 +25,7 @@
         <module>event-service</module>
         <module>seat-service</module>
         <module>booking-service</module>
+        <module>payment-service</module>
     </modules>
 
     <properties>
