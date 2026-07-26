@@ -61,26 +61,45 @@ To automatically apply Palantir code formatting across all Java files:
 mvn spotless:apply
 ```
 
-### 2. Start Local Infrastructure
-Use the provided shell scripts or Docker Compose to boot PostgreSQL, Redis Cluster, Kafka, Zookeeper, Prometheus, Grafana, and OpenTelemetry Collector:
-```bash
-./scripts/start.sh
-# OR manually:
-docker compose up -d
-```
-* **PostgreSQL:** `localhost:5432` (Auto-creates 7 isolated databases: `auth_db`, `user_db`, `event_db`, `seat_db`, `booking_db`, `payment_db`, `analytics_db`)
-* **Redis Cluster:** `localhost:6379`
-* **Kafka:** `localhost:9092`
-* **Prometheus:** `http://localhost:9090`
-* **Grafana:** `http://localhost:3000` (Default credentials: `admin` / `admin`)
-* **Zipkin Tracing:** `http://localhost:9411`
+### 2. Run the Entire Distributed System via Docker Compose
+The repository includes a production-ready `docker-compose.yml` and optimized multi-stage Dockerfiles that orchestrate all 8 microservices and supporting infrastructure with automated health checks, restart policies, and startup dependency chains.
 
-### 3. Run Microservices
-Each microservice can be started via Maven Spring Boot plugin or directly from your IDE:
+To build and start all services and infrastructure locally:
 ```bash
-# Example: Starting API Gateway
-cd api-gateway && mvn spring-boot:run -Dspring-boot.run.profiles=dev
+docker compose up --build -d
 ```
+
+To view real-time container status and health checks:
+```bash
+docker compose ps
+```
+
+To follow aggregate logs across all microservices:
+```bash
+docker compose logs -f
+```
+
+To stop and remove all containers and networks:
+```bash
+docker compose down
+```
+
+### 3. Service Ports & Access URLs
+Once running, the services and observability tools are accessible at the following endpoints:
+* **API Gateway (Entry Point):** `http://localhost:8080`
+* **Auth Service:** `http://localhost:8081`
+* **Event Catalog Service:** `http://localhost:8083`
+* **Seat & Show Inventory Service:** `http://localhost:8084`
+* **Booking Service:** `http://localhost:8085`
+* **Payment Gateway Service:** `http://localhost:8086`
+* **Notification Service:** `http://localhost:8087`
+* **Analytics Service:** `http://localhost:8088`
+* **PostgreSQL (8 isolated DBs):** `localhost:5432` (`auth_db`, `event_db`, `seat_db`, `booking_db`, `payment_db`, `notification_db`, `analytics_db`, `user_db`)
+* **Redis Cluster:** `localhost:6379`
+* **Kafka Broker:** `localhost:9092` (Host) / `kafka:29092` (Docker Network)
+* **Prometheus Monitoring:** `http://localhost:9090`
+* **Grafana Dashboard:** `http://localhost:3000` (Credentials: `admin` / `admin`)
+* **Zipkin Distributed Tracing:** `http://localhost:9411`
 
 ---
 
