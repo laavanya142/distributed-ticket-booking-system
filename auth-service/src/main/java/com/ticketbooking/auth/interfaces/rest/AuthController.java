@@ -65,7 +65,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> logout(@RequestParam("userId") UUID userId) {
         log.info("Received logout request for user ID: {}", userId);
         authService.logout(userId);
-        return ResponseEntity.ok(ApiResponse.success("Logged out and tokens revoked", null));
+        return ResponseEntity.ok(ApiResponse.success("Logged out and tokens revoked", (Void) null));
     }
 
     @PostMapping("/validate")

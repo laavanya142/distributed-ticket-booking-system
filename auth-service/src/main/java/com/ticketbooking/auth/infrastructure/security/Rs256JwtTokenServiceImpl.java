@@ -103,7 +103,7 @@ public class Rs256JwtTokenServiceImpl implements JwtTokenService {
                 .privateKey(privateKey)
                 .keyID(keyId)
                 .algorithm(com.nimbusds.jose.JWSAlgorithm.RS256)
-                .use(com.nimbusds.jose.jwk.KeyUse.SIGNATURE)
+                .keyUse(com.nimbusds.jose.jwk.KeyUse.SIGNATURE)
                 .build();
 
         JWKSet jwkSet = new JWKSet(rsaKey.toPublicJWK());
