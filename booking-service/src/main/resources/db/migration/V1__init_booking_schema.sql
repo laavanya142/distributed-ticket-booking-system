@@ -61,14 +61,14 @@ CREATE TABLE inbox_messages (
 
 -- Client idempotency store
 CREATE TABLE idempotency_keys (
-    key           VARCHAR(128) NOT NULL,
-    user_id       UUID NOT NULL,
-    booking_id    UUID NULL,
-    status_code   INT NOT NULL,
-    response_body TEXT NOT NULL,
-    created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    expires_at    TIMESTAMP WITH TIME ZONE NOT NULL,
-    PRIMARY KEY (key, user_id)
+    idempotency_key VARCHAR(128) NOT NULL,
+    user_id         UUID NOT NULL,
+    booking_id      UUID NULL,
+    status_code     INT NOT NULL,
+    response_body   TEXT NOT NULL,
+    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at      TIMESTAMP WITH TIME ZONE NOT NULL,
+    PRIMARY KEY (idempotency_key, user_id)
 );
 
 CREATE INDEX idx_idempotency_expires ON idempotency_keys(expires_at);
