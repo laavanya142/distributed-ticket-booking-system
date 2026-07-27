@@ -123,14 +123,15 @@ public class Booking {
      * @param targetStatus The desired target state.
      */
     public void transitionTo(BookingStatus targetStatus) {
-        if (this.status == targetStatus) {
+        if (this.status == targetStatus && this.status != BookingStatus.CANCELLED) {
             return;
         }
 
         boolean valid =
                 switch (this.status) {
                     case PENDING -> targetStatus == BookingStatus.AWAITING_PAYMENT
-                            || targetStatus == BookingStatus.CANCELLED;
+                            || targetStatus == BookingStatus.CANCELLED
+                            || targetStatus == BookingStatus.EXPIRED;
                     case AWAITING_PAYMENT -> targetStatus == BookingStatus.CONFIRMED
                             || targetStatus == BookingStatus.CANCELLED
                             || targetStatus == BookingStatus.EXPIRED;
