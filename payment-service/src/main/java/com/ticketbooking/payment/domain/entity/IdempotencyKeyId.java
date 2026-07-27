@@ -17,7 +17,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class IdempotencyKeyId implements Serializable {
 
-    @Column(name = "key", nullable = false, length = 128)
+    @Column(name = "idempotency_key", nullable = false, length = 128)
     private String key;
 
     @Column(name = "user_id", nullable = false)

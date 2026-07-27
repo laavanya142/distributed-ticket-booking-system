@@ -36,14 +36,14 @@ CREATE INDEX idx_outbox_status_created ON outbox_events(status, created_at);
 
 -- Client idempotency store table
 CREATE TABLE idempotency_keys (
-    key           VARCHAR(128) NOT NULL,
+    idempotency_key VARCHAR(128) NOT NULL,
     user_id       UUID NOT NULL,
     payment_id    UUID NULL,
     status_code   INT NOT NULL,
     response_body TEXT NOT NULL,
     created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     expires_at    TIMESTAMP WITH TIME ZONE NOT NULL,
-    PRIMARY KEY (key, user_id)
+    PRIMARY KEY (idempotency_key, user_id)
 );
 
 CREATE INDEX idx_idempotency_expires ON idempotency_keys(expires_at);
